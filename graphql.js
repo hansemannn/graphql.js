@@ -41,16 +41,15 @@
       var body = "query=" + encodeURIComponent(data.query) + "&variables=" + encodeURIComponent(JSON.stringify(data.variables))
     }
     if (debug) {
-      console.groupCollapsed('[graphql]: '
+      console.log('[graphql]: '
         + method.toUpperCase() + ' ' + url + ': '
         + data.query.split(/\n/)[0].substr(0, 50) + '... with '
         + JSON.stringify(data.variables).substr(0, 50) + '...')
       console.log('QUERY: %c%s', 'font-weight: bold', data.query)
       console.log('VARIABLES: %c%s\n\nsending as ' + (asJson ? 'json' : 'form url-data'), 'font-weight: bold', JSON.stringify(data.variables, null, 2), data.variables)
-      console.groupEnd()
     }
-    if (typeof XMLHttpRequest != 'undefined') {
-      var xhr = new XMLHttpRequest
+    if (typeof Ti == 'object' || typeof XMLHttpRequest != 'undefined') {
+      var xhr = Ti ? Ti.Network.createHTTPClient() : new XMLHttpRequest;
       xhr.open(method, url, true)
       xhr.setRequestHeader('Content-Type', (asJson ? 'application/json' : 'application/x-www-form-urlencoded'))
       xhr.setRequestHeader('Accept', 'application/json')
