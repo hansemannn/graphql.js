@@ -31,7 +31,6 @@
     })
   }
 
-  if (typeof Ti == 'object' || typeof XMLHttpRequest != 'undefined') {
     function __doRequest(
       method, url, contentType, accept, headers, body, _onRequestError, callback
     ) {
@@ -51,35 +50,7 @@
       }
       xhr.send(body)
     }
-  } else if (typeof require === 'function') {
-    function __doRequest(
-      method, url, contentType, accept, headers, body, onRequestError, callback
-    ) {
-      var http = require('http'), https = require('https'), URL = require('url'), uri = URL.parse(url)
-      var req = (uri.protocol === 'https:' ? https : http).request({
-        protocol: uri.protocol,
-        hostname: uri.hostname,
-        port: uri.port,
-        path: uri.path,
-        method: method.toUpperCase(),
-        headers: __extend({ 'Content-type': contentType, 'Accept': accept }, headers)
-      }, function (response) {
-        var str = ''
-        response.setEncoding('utf8')
-        response.on('data', function (chunk) { str += chunk })
-        response.on('end', function () {
-          callback(JSON.parse(str), response.statusCode)
-        })
-      })
-      if (typeof onRequestError === 'function') {
-        req.on('error', function (err) {
-          onRequestError(err);
-        });
-      }
-      req.write(body)
-      req.end()
-    }
-  }
+  
 
   function __request(debug, method, url, headers, data, asJson, onRequestError, callback) {
     if (!url) {
