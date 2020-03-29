@@ -16,6 +16,7 @@
 
 ### Features
 
+- Too small, 4k gzipped.
 - No dependencies, plain vanilla JavaScript.
 - Plug & Play.
 - Isomorphic.
@@ -66,6 +67,12 @@ console.log(users)
 ## Installation
 
 You can download `graphql.js` directly, or you can use **Bower** or **NPM**.
+
+#### CDN
+
+```html
+<script src="//cdn.jsdelivr.net/npm/graphql.js@0.6.6/graphql.min.js"></script>
+```
 
 #### Download for Browser
 
@@ -121,6 +128,7 @@ var graph = graphql("http://localhost:3000/graphql", {
   headers: {
     // headers
     "Access-Token": "some-access-token"
+    // OR "Access-Token": () => "some-access-token"
   },
   fragments: {
     // fragments, you don't need to say `fragment name`.

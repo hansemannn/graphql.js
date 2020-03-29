@@ -31,28 +31,14 @@
     })
   }
 
-  function __request(debug, method, url, headers, data, asJson, onRequestError, callback) {
-    if (!url) {
-      return;
-    }
-    if (asJson) {
-      var body = JSON.stringify({query: data.query, variables: data.variables});
-    } else {
-      var body = "query=" + encodeURIComponent(data.query) + "&variables=" + encodeURIComponent(JSON.stringify(data.variables))
-    }
-    if (debug) {
-      console.log('[graphql]: '
-        + method.toUpperCase() + ' ' + url + ': '
-        + data.query.split(/\n/)[0].substr(0, 50) + '... with '
-        + JSON.stringify(data.variables).substr(0, 50) + '...')
-      console.log('QUERY: %c%s', 'font-weight: bold', data.query)
-      console.log('VARIABLES: %c%s\n\nsending as ' + (asJson ? 'json' : 'form url-data'), 'font-weight: bold', JSON.stringify(data.variables, null, 2), data.variables)
-    }
-    if (typeof Ti == 'object' || typeof XMLHttpRequest != 'undefined') {
-      var xhr = Ti ? Ti.Network.createHTTPClient() : new XMLHttpRequest;
+  if (typeof Ti == 'object' || typeof XMLHttpRequest != 'undefined') {
+    function __doRequest(
+      method, url, contentType, accept, headers, body, _onRequestError, callback
+    ) {
+      var xhr = Ti ? Ti.Network.createHTTPClient() : new XMLHttpRequest
       xhr.open(method, url, true)
-      xhr.setRequestHeader('Content-Type', (asJson ? 'application/json' : 'application/x-www-form-urlencoded'))
-      xhr.setRequestHeader('Accept', 'application/json')
+      xhr.setRequestHeader('Content-Type', contentType)
+      xhr.setRequestHeader('Accept', accept)
       for (var key in headers) { xhr.setRequestHeader(key, headers[key]) }
       xhr.onerror = function () { callback(xhr, xhr.status) }
       xhr.onload = function () {
@@ -64,18 +50,19 @@
         }
       }
       xhr.send(body)
-    } else if (typeof require == 'function') {
-      var http = require('http'), https = require('https'), URL = require('url'), uri = URL.parse(url);
+    }
+  } else if (typeof require === 'function') {
+    function __doRequest(
+      method, url, contentType, accept, headers, body, onRequestError, callback
+    ) {
+      var http = require('http'), https = require('https'), URL = require('url'), uri = URL.parse(url)
       var req = (uri.protocol === 'https:' ? https : http).request({
         protocol: uri.protocol,
         hostname: uri.hostname,
         port: uri.port,
         path: uri.path,
-        method: "POST",
-        headers: __extend({
-          'Content-type': (asJson ? 'application/json' : 'application/x-www-form-urlencoded'),
-          'Accept': 'application/json'
-        }, headers)
+        method: method.toUpperCase(),
+        headers: __extend({ 'Content-type': contentType, 'Accept': accept }, headers)
       }, function (response) {
         var str = ''
         response.setEncoding('utf8')
@@ -92,6 +79,43 @@
       req.write(body)
       req.end()
     }
+  }
+
+  function __request(debug, method, url, headers, data, asJson, onRequestError, callback) {
+    if (!url) {
+      return;
+    }
+    if (asJson) {
+      var body = JSON.stringify({query: data.query, variables: data.variables});
+    } else {
+      var body = "query=" + encodeURIComponent(data.query) + "&variables=" + encodeURIComponent(JSON.stringify(data.variables))
+    }
+    if (debug) {
+      console.groupCollapsed('[graphql]: '
+        + method.toUpperCase() + ' ' + url + ': '
+        + data.query.split(/\n/)[0].substr(0, 50) + '... with '
+        + JSON.stringify(data.variables).substr(0, 50) + '...')
+      console.log('QUERY: %c%s', 'font-weight: bold', data.query)
+      console.log('VARIABLES: %c%s\n\nsending as ' + (asJson ? 'json' : 'form url-data'), 'font-weight: bold', JSON.stringify(data.variables, null, 2), data.variables)
+      console.groupEnd()
+    }
+
+    for (var key in headers) {
+      if (typeof headers[key] === 'function') {
+        headers[key] = headers[key]()
+      }
+    }
+
+    __doRequest(
+      method,
+      url,
+      asJson ? 'application/json' : 'application/x-www-form-urlencoded',
+      'application/json',
+      headers,
+      body,
+      onRequestError,
+      callback
+    )
   }
 
   function __isTagCall(strings) {
@@ -181,7 +205,7 @@
       var path = fragment.replace(fragmentRegexp, function (_, $m) {return $m})
       var fragment = that.fragmentPath(fragments, path)
       if (fragment) {
-        var pathRegexp = new RegExp(fragmentRegexp.source.replace(/\((.*)\)/, path))
+        var pathRegexp = new RegExp(fragmentRegexp.source.replace(/\((.*)\)/, path) + '$')
         if (fragment.match(pathRegexp)) {
           throw new Error("Recursive fragment usage detected on " + path + ".")
         }
@@ -228,7 +252,11 @@
       var types = []
       for (var key in variables) {
         var value = variables[key]
-        var keyAndType = key.split("!")
+        var keyAndType = key.split(/^(.*?)\!/)
+        if (keyAndType.length > 1) {
+          keyAndType = keyAndType.slice(1)
+          keyAndType[1] = keyAndType[1].replace(/(.*?)\!$/, "$1")
+        }
         var mapping = typeMap[typeof(value)]
         var mappedType = typeof(mapping) === "function" ? mapping(value) : mapping
         if (!key.match("!") && keyAndType[0].match(/_?id/i)) {
@@ -402,6 +430,8 @@
         })
       })
       return newResponses
+    }).catch(function (responses) {
+      return { error: true, errors: responses }
     }).finally(function (responses) {
       that._transaction[mergeName] = { query: [], mutation: [] }
       return responses
